@@ -94,6 +94,11 @@ pmg	SPRITES
 
 main
 //---------------
+//  ntsc or pal???
+//---------------
+	jsr testntsc
+
+//---------------
 // use tmer for timer, so set it to 0
 //---------------
 	mva #0 tmer
