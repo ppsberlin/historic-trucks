@@ -1,0 +1,418 @@
+/***************************************/
+/*  Use MADS http://mads.atari8.info/  */
+/*  Mode: GED- (bitmap mode)           */
+/***************************************/
+MODUL	equ $a000				;address of RMT module
+VLINE	equ 16
+PLAYER	equ $9500				;address of RMT player
+RMT	equ $B300				;address of RMT init
+
+	icl "no_name.h"
+
+	org $00
+
+fcnt	.ds 2
+fadr	.ds 2
+fhlp	.ds 2
+cloc	.ds 1
+regA	.ds 1
+regX	.ds 1
+regY	.ds 1
+byt2	.ds 1
+tmer	.ds 1
+tmer2	.ds 1
+
+zc	.ds ZCOLORS
+
+* ---	BASIC switch OFF
+;	org $2000\ mva #$ff portb\ rts\ ini $2000
+
+* ---	MAIN PROGRAM
+	org $2010
+	IFT PIC_HEIGHT>=204
+scr	ins "output.png.mic", 0, 8160
+	:16 .byte 0
+	ins "output.png.mic" , +8160
+	ELS
+scr	ins "output.png.mic"
+	EIF
+
+	.ifdef nil_used
+nil	:8*40 brk
+	eif
+
+	.ALIGN $0400
+ant	
+	:+8 dta $4e,a(scr+$0000+#*40)
+	:+8 dta $4e,a(scr+$0140+#*40)
+	:+8 dta $4e,a(scr+$0280+#*40)
+	:+8 dta $4e,a(scr+$03C0+#*40)
+	:+8 dta $4e,a(scr+$0500+#*40)
+	:+8 dta $4e,a(scr+$0640+#*40)
+	:+8 dta $4e,a(scr+$0780+#*40)
+	:+8 dta $4e,a(scr+$08C0+#*40)
+	:+8 dta $4e,a(scr+$0A00+#*40)
+	:+8 dta $4e,a(scr+$0B40+#*40)
+	:+8 dta $4e,a(scr+$0C80+#*40)
+	:+8 dta $4e,a(scr+$0DC0+#*40)
+	:+8 dta $4e,a(scr+$0F00+#*40)
+	:+8 dta $4e,a(scr+$1040+#*40)
+	:+8 dta $4e,a(scr+$1180+#*40)
+	:+8 dta $4e,a(scr+$12C0+#*40)
+	:+8 dta $4e,a(scr+$1400+#*40)
+	:+8 dta $4e,a(scr+$1540+#*40)
+	:+8 dta $4e,a(scr+$1680+#*40)
+	:+8 dta $4e,a(scr+$17C0+#*40)
+	:+8 dta $4e,a(scr+$1900+#*40)
+	:+8 dta $4e,a(scr+$1A40+#*40)
+
+	:+4 dta $4e,a(scr+$1B80+#*40)
+
+;	:+8 dta $4e,a(scr+$1B80+#*40)
+;	:+8 dta $4e,a(scr+$1CC0+#*40)
+;	:+8 dta $4e,a(scr+$1E00+#*40)
+;	:+4 dta $4e,a(scr+$1F40+#*40)
+;	:+4 dta $4e,a(scr+$1FF0+#*40)
+;	:+8 dta $4e,a(scr+$2090+#*40)
+
+; lines for picture height more than 212 pixels
+;	:+8 dta $4e,a(scr+$21D0+#*40)
+;	:+8 dta $4e,a(scr+$2310+#*40)
+;	:+8 dta $4e,a(scr+$2450+#*40)
+
+	dta $57
+lobyte	dta b(<scrolltext)
+hibyte	dta b(>scrolltext)
+	dta $41,a(ant)
+fnt
+
+	ift USESPRITES
+	.ALIGN $0800
+	.ds $0300
+pmg	SPRITES
+	eif
+
+main
+//---------------
+// use tmer for timer, so set it to 0
+//---------------
+	mva #0 tmer
+	sta tmer2
+
+	jsr music
+	
+* ---	init PMG
+
+	ift USESPRITES
+	mva >pmg pmbase		;missiles and players data address
+	mva #$03 pmcntl		;enable players and missiles
+	eif
+
+	lda:cmp:req $14		;wait 1 frame
+
+	sei			;stop interrups
+	mva #$00 nmien		;stop all interrupts
+	mva #$fe portb		;switch off ROM to get 16k more ram
+
+	ZPINIT
+
+////////////////////
+// RASTER PROGRAM //
+////////////////////
+
+;	jmp line239
+	jmp raster_program_end
+
+LOOP	lda vcount		;synchronization for the first screen line
+	cmp #$02
+	bne LOOP
+
+	mva #%00111110 dmactl	;set new screen width
+	mva <ant dlptr
+	mva >ant dlptr+1
+
+  icl "output.png.rp.ini"
+
+;--- wait 18 cycles
+	jsr _rts
+	inc byt3
+
+;--- set global offset (23 cycles)
+	jsr _rts
+	cmp byt3\ pha:pla
+
+;--- empty line
+	jsr wait54cycle
+	inc byt2
+
+  icl "output.png.rp"
+
+raster_program_end
+
+; set own font
+	lda >fnt_own
+	sta chbase
+
+c0	lda #$00
+	sta colbak
+c1	lda #$26
+	sta color0
+c2	lda #$44
+	sta color1
+c3	lda #$86
+	sta color2
+c4	lda #$00
+	sta color3
+s0	lda #$03
+	sta sizep0
+	sta sizep1
+	sta sizep2
+	sta sizep3
+	mva #$ff sizem
+	sta grafm
+	mva #$20 hposm0
+	mva #$28 hposm1
+	mva #$d0 hposm2
+	mva #$d8 hposm3
+	mva #$02 pmcntl
+	lda #$14
+	sta gtictl
+	
+	sta wsync
+	mva #08 color3
+:13	sta wsync
+	mva #0 color3
+	sta wsync
+
+	jsr scroll
+	lda ntscpal
+	cmp #1
+	bne itspal
+*------ ntsc, so we have to use the counter
+	lda count_s
+	cmp #0
+	beq reset_count
+	dec count_s
+itspal
+; go for the music
+	jsr RASTERMUSICTRACKER+3
+
+	jmp we_iter
+
+reset_count
+	mva #5 count_s
+
+//--------------------
+//	EXIT
+//--------------------
+we_iter
+//--------------------
+//   Timer
+//--------------------
+	lda tmer
+	cmp #50
+	bne go_further
+	mva #0 tmer
+	inc tmer2
+	lda tmer2
+	cmp #240
+	beq stop
+
+go_further
+	inc tmer
+//--------------------
+	
+	lda trig0		; FIRE #0
+	beq stop
+
+	lda trig1		; FIRE #1
+	beq stop
+
+	lda consol		; START
+	and #1
+	beq stop
+
+	lda skctl		; ANY KEY
+	and #$04
+	bne skp
+
+stop	mva #$00 pmcntl		;PMG disabled
+	tax
+	sta:rne hposp0,x+
+
+	mva #$ff portb		;ROM switch on
+	mva #$40 nmien		;only NMI interrupts, DLI disabled
+	cli			;IRQ enabled
+
+	lda:cmp:req $14		;wait 1 frame
+
+	rts			;return to ... DOS
+skp
+
+//--------------------
+
+	jmp LOOP
+
+;---
+count_s	.he 00
+*--------------- ntsc or pal test
+ntscpal .ds 1
+*--------------- testntscpal routine
+testntsc
+	lda 53268
+	cmp #1
+	bne ntsc
+	mva #0 ntscpal
+	rts
+ntsc
+	mva #1 ntscpal
+	rts
+*---------------------------------
+
+wait54cycle
+	:2 inc byt2
+wait44cycle
+	inc byt3
+	nop
+wait36cycle
+	inc byt3
+	jsr _rts
+wait18cycle
+	inc byt3
+_rts	rts
+
+byt3	brk
+
+//--------------------------
+;------------------------------------------------------------------------------
+
+shscrol 	dta 7
+
+scroll	lda shscrol
+	bpl set
+	inc lobyte
+	bne nohigh
+	inc hibyte
+nohigh	lda #7
+	sta shscrol
+	lda lobyte
+	cmp <endtext
+	bne set
+	lda hibyte
+	cmp >endtext
+	bne set
+	mva <scrolltext lobyte
+	mva >scrolltext hibyte
+set	lda shscrol
+	sta $d404
+	dec shscrol 
+	rts
+
+;------------------------------------------------------------------------------
+	.align $0400
+fnt_own
+	ins 'DM.FNT'
+
+scrolltext
+	dta d'                                '
+	dta d'thanks FOR watching '
+	dta d'THIS picture show'*,d'.              HOPE you liked some of THE TRu',d'CKs'*
+	dta d'.                I took the pictures at the IAA NUTZFAHRZEUGE in 20',d'14'*
+	dta d'.                '
+	dta d'rastaconverter was used TO BRING',d' THEM on the At'*,d'arI.'
+	dta d' THE MUSIC was done by ',d'MK'*
+	dta d'. listen to it at least for THE ',d'next 4'*,d' minutes.'
+	dta d'               ...--- stay ',d'ATARI'*,d'!!! ---...                     happy NEW year! pps'
+endtext
+	dta d'                     '
+;---
+STEREOMODE	equ 2				;0 => compile RMTplayer for mono 4 tracks
+;								;1 => compile RMTplayer for stereo 8 tracks
+;								;2 => compile RMTplayer for 4 tracks stereo L1 R2 R3 L4
+;								;3 => compile RMTplayer for 4 tracks stereo L1 L2 R3 R4
+;
+;
+	icl "rmtplayr.a65"			;include RMT player routine
+;
+;
+	opt h-						;RMT module is standard Atari binary file already
+	ins "vertia000.rmt"				;include music RMT module
+	opt h+
+
+	org RMT
+music
+;
+	ldx #<MODUL					;low byte of RMT module to X reg
+	ldy #>MODUL					;hi byte of RMT module to Y reg
+	lda #0						;starting song line 0-255 to A reg
+	jsr RASTERMUSICTRACKER		;Init
+;Init returns instrument speed (1..4 => from 1/screen to 4/screen)
+	tay
+	lda tabpp-1,y
+	sta acpapx2+1				;sync counter spacing
+	lda #16+0
+	sta acpapx1+1				;sync counter init
+;
+;	lda #255
+;	sta KEY						;no key pressed
+;
+loop_rmt
+acpapx1	lda #$ff				;parameter overwrite (sync line counter value)
+	clc
+acpapx2	adc #$ff				;parameter overwrite (sync line counter spacing)
+	cmp #156
+	bcc lop4
+	sbc #156
+lop4
+	sta acpapx1+1
+waipap
+	cmp VCOUNT					;vertical line counter synchro
+	bne waipap
+;
+	jsr RASTERMUSICTRACKER+3	;1 play
+;
+;	lda KEY						;keyboard
+;	cmp #28						;ESCape key?
+;	bne loop					;no => loop
+;
+	rts
+
+;
+tabpp  dta 156,78,52,39			;line counter spacing table for instrument speed from 1 to 4
+
+//--------------------------
+
+;---
+
+CL
+
+.MACRO	ZPINIT
+.ENDM
+
+ZCOLORS	= 0
+
+;---
+//---------------------
+// use ini if you want to link a file and return loading
+// use run for stand alone
+//---------------------
+
+	ini main
+//---------------------
+// place the next file here
+// or do similar in the other file before your programme starts
+//---------------------
+
+	opt h-
+;	ins 'football.xex'
+	opt h+
+;---
+
+	opt l-
+
+.MACRO	SPRITES
+	icl "output.png.pmg"
+.ENDM
+
+USESPRITES = 1
+
