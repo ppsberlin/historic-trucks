@@ -1,5 +1,5 @@
-*.asm linguist-language=Assembly
-*.asm linguist-detectable=true
+*.as* linguist-language=Assembly
+*.as* linguist-detectable=true
 *.csv linguist-detectable=false
 *.atdb linguist-detectable=false
 *.lst linguist-detectable=false
